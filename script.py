@@ -1,11 +1,27 @@
 #! /usr/bin/python3
 # -*- coding: utf-8 -*-
-"""Ssh_Auto_Banning. The simple way to prevent bruteforce attackers"""
-# https://stackoverflow.com/questions/26331116/reading-systemd-journal-from-python-script
+"""Ssh_Auto_Banning. The simple way to prevent bruteforce attackers.
+By default, this script will ban every ip that fails to login 6 times.
+Although, if an ip logs in properly, we add it to the whitelist.
+Bans with the help of iptables"""
 
 from systemd import journal as sysdj
 import threading
 import signal
+import pickle
+import subprocess
+import os
+import requests
+import ipaddress
+
+# User definable variables
+user_whitelist = []  # Add IP addresses you do not want to ban here
+use_auto_whitelist = True  # Enables the auto whitelist, adds IPs that connected successfully to the whitelist
+retry_count = 6  # How many times an IP can try to guess the password
+more_messages = False  # Prints extra info
+active = True  # Actually adds the entries to iptables
+report = False  # If active, report to badips.com
+chain_name = "SSHBAN"  # Name of the iptables chain you want to use, needs to exist
 
 
 # Codes for extract_info
@@ -20,22 +36,105 @@ def on_signal(signal_number, stack_frame):
     exit(0)
 
 
+def print_extra(msg: str):
+    """Prints only if necessary"""
+    if more_messages:
+        print(msg)
+
+
+def process_line(msg: str):
+    """Process an incoming log entry"""
+    # Extract the info
+    info = extract_info(msg)
+    # If the login failed
+    if info[0] == FAILED:
+        print_extra("Failed login from {} ! -> {}".format(info[1], msg))
+        manage_failed(info[1])
+    # If the login passed
+    elif info[0] == ACCEPTED:
+        print_extra("Accepted login from {} ! -> {}".format(info[1], msg))
+        manage_accepted(info[1])
+    # If it is non relevant
+    else:
+        print_extra("Non relevant message -> {}".format(msg))
+
+
 def extract_info(msg: str) -> list:
     """Extracts useful info out of a log line"""
-    msg_splitted = msg.split()
-    if msg_splitted[0] == "Failed":
-        if msg_splitted[3] == "invalid" and msg_splitted[4] == "user":
-            return [FAILED, msg_splitted[7]]
+    msg_words = msg.split()
+    if msg_words[0] == "Failed":
+        if msg_words[3] == "invalid" and msg_words[4] == "user":
+            # Failed on invalid user
+            return [FAILED, msg_words[7].split("%")[0]]  # Split at % for IPv6 addresses
         else:
-            return [FAILED, msg_splitted[5]]
-    elif msg_splitted[0] == "Accepted":
-        return [ACCEPTED, msg_splitted[5]]
+            # Failed on existing user
+            return [FAILED, msg_words[5].split("%")[0]]
+    elif msg_words[0] == "Accepted":
+        # Accepted login
+        return [ACCEPTED, msg_words[5].split("%")[0]]
     else:
+        # Everything else
         return [NON_RELEVANT]
 
 
-class NewLineLogUnlocker(threading.Thread):
+def complete_whitelist() -> list:
+    """Returns the combination of the auto whitelist and the user whitelist"""
+    return user_whitelist + auto_whitelist
+
+
+def manage_failed(ip: str):
+    """What to do when some ip fails to login"""
+    if ip not in complete_whitelist():
+        try:
+            rising_threats[ip] += 1
+        except KeyError:
+            rising_threats[ip] = 1
+        pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
+        print("{} -> {} fails".format(ip, rising_threats[ip]))
+        if rising_threats[ip] >= retry_count:
+            print("{} -> BAN !".format(ip))
+            del(rising_threats[ip])
+            ban(ip)
+    else:
+        print("{} -> Fail but Whitelisted".format(ip))
+
+
+def ban(ip: str):
+    """Bans an IP address"""
+    address_type = ipaddress.ip_address(ip).version
+    if address_type == 4:
+        command = ["iptables", "-w", "-I", chain_name, "1", "-s", ip, "-j", "DROP"]
+    else:
+        command = ["ip6tables", "-w", "-I", chain_name, "1", "-s", ip, "-j", "DROP"]
+    if active:
+        if address_type == 4:
+            subprocess.call(command, stdout=open(os.devnull, 'wb'))
+            if report:
+                requests.get("https://www.badips.com/add/ssh/{}".format(ip))
+        elif address_type == 6:
+            subprocess.call(command, stdout=open(os.devnull, 'wb'))
+    else:
+        text = ""
+        for part in command:
+            text += part + " "
+        print_extra("Command to run: {}".format(text))
+
+
+def manage_accepted(ip: str):
+    """What to do when some ip logs in"""
+    if (ip not in complete_whitelist()) and use_auto_whitelist:
+        auto_whitelist.append(ip)
+        try:
+            del(rising_threats[ip])
+        except KeyError:
+            pass
+        print("{} -> Add to Auto whitelist".format(ip))
+        pickle.dump(auto_whitelist, open(auto_whitelist_path, 'wb'))
+
+
+class NewEntryJournalExtLock(threading.Thread):
     """Unlocks the Lock object when a new line is available"""
+
     def __init__(self):
         super().__init__()
         self.daemon = True
@@ -51,37 +150,51 @@ class NewLineLogUnlocker(threading.Thread):
             self.journal.wait()
             self.rel_lock.release()
 
-# Make the journal object for reading the logs
-journal = sysdj.Reader()
-journal.log_level(sysdj.LOG_INFO)
-journal.add_match(_SYSTEMD_UNIT="sshd.service")
-journal.seek_tail()
-journal.get_previous()
 
-# Sets up the external locking system
-main_lock = threading.Lock()
-main_lock.acquire()
-second_lock = threading.Lock()
-second_lock.acquire()
-ext_locker = NewLineLogUnlocker()
+if __name__ == '__main__':
+    # Make the journal object for reading the logs
+    journal = sysdj.Reader()
+    journal.log_level(sysdj.LOG_INFO)
+    journal.add_match(_SYSTEMD_UNIT="sshd.service")
+    journal.seek_tail()
+    journal.get_previous()
 
-# Sets up shutdown related things
-shutdown = False
-signal.signal(signal.SIGTERM, on_signal)
-signal.signal(signal.SIGINT, on_signal)
-
-print("Ssh_Auto_Banning is now active !")
-
-while True:
-    second_lock.release()
+    # Sets up the external locking system
+    main_lock = threading.Lock()
     main_lock.acquire()
-    for entry in journal:
-        message = entry['MESSAGE']
-        if message != "":
-            info = extract_info(message)
-            if info[0] == FAILED:
-                print("Failed login from {} ! -> {}".format(info[1], message))
-            elif info[0] == ACCEPTED:
-                print("Accepted login from {} ! -> {}".format(info[1], message))
-            else:
-                print("Non relevant message -> {}".format(message))
+    second_lock = threading.Lock()
+    second_lock.acquire()
+    ext_locker = NewEntryJournalExtLock()
+
+    # Sets up shutdown related things
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+
+    # Loads/creates the auto_whitelist file
+    auto_whitelist_path = "auto_whitelist.data"
+    try:
+        auto_whitelist = pickle.load(open(auto_whitelist_path, 'rb'))
+    except FileNotFoundError:
+        auto_whitelist = []
+
+    # Loads/creates the rising threats file
+    rising_threats_path = "rising_threats.data"
+    try:
+        rising_threats = pickle.load(open(rising_threats_path, 'rb'))
+    except FileNotFoundError:
+        rising_threats = {}
+
+    print("Ssh_Auto_Banning starts !")
+    if active:
+        print("Banning is active")
+        if report:
+            print("Reporting to badips.com")
+    else:
+        print("Banning is NOT active")
+
+    while True:
+        second_lock.release()
+        main_lock.acquire()
+        for entry in journal:
+            if entry['MESSAGE'] != "":
+                process_line(entry['MESSAGE'])
