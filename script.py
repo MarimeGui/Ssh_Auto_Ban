@@ -52,7 +52,7 @@ def on_signal(signal_number, stack_frame):
 def my_print(msg: str):
     """Prints to the console or to the journal, depending on the configuration"""
     if use_direct_journal:
-        journal.send(msg)
+        sysdj.send(msg)
     else:
         print(msg)
 
@@ -175,7 +175,7 @@ class NewEntryJournalExtLock(threading.Thread):
 
 
 if __name__ == '__main__':
-    print("Initializing...")
+    my_print("Initializing...")
 
     # Make the journal object for reading the logs
     journal = sysdj.Reader()
