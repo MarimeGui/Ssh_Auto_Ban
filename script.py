@@ -21,6 +21,7 @@ retry_count = 6  # How many times an IP can try to guess the password
 more_messages = False  # Prints extra info
 active = True  # Actually adds the entries to iptables
 report = False  # If active, report to badips.com
+use_direct_journal = True  # Writes logs directly to the systemd journal, disable when testing
 chain_name = "SSHBAN"  # Name of the iptables chain you want to use, needs to exist
 auto_whitelist_path = "auto_whitelist.data"
 rising_threats_path = "rising_threats.data"
@@ -35,7 +36,7 @@ NON_RELEVANT = 2
 
 def on_signal(signal_number, stack_frame):
     """Runs when a signal is received, shuts down properly"""
-    print("{} received, shutting down properly".format(signal.Signals(signal_number).name))
+    my_print("{} received, shutting down properly".format(signal.Signals(signal_number).name))
     if active:
         shutdown_commands = [["iptables", "-D", "INPUT", "-j", chain_name],
                              ["iptables", "-F", chain_name],
@@ -48,10 +49,18 @@ def on_signal(signal_number, stack_frame):
     exit(0)
 
 
+def my_print(msg: str):
+    """Prints to the console or to the journal, depending on the configuration"""
+    if use_direct_journal:
+        journal.send(msg)
+    else:
+        print(msg)
+
+
 def print_extra(msg: str):
     """Prints only if necessary"""
     if more_messages:
-        print(msg)
+        my_print(msg)
 
 
 def process_line(msg: str):
@@ -101,7 +110,7 @@ def manage_failed(ip: str):
             rising_threats[ip] += 1
         except KeyError:
             rising_threats[ip] = 1
-        print("{} → {} fails".format(ip, rising_threats[ip]))
+        my_print("{} → {} fails".format(ip, rising_threats[ip]))
         if rising_threats[ip] >= retry_count:
             print("{} → BAN !".format(ip))
             del(rising_threats[ip])
@@ -110,7 +119,7 @@ def manage_failed(ip: str):
             ban(ip)
         pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
     else:
-        print("{} → Fail but Whitelisted".format(ip))
+        my_print("{} → Fail but Whitelisted".format(ip))
 
 
 def ban(ip: str):
@@ -142,7 +151,7 @@ def manage_accepted(ip: str):
             del(rising_threats[ip])
         except KeyError:
             pass
-        print("{} → Add to Auto whitelist".format(ip))
+        my_print("{} → Add to Auto whitelist".format(ip))
         pickle.dump(auto_whitelist, open(auto_whitelist_path, 'wb'))
 
 
@@ -166,6 +175,8 @@ class NewEntryJournalExtLock(threading.Thread):
 
 
 if __name__ == '__main__':
+    my_print("Initializing...")
+
     # Make the journal object for reading the logs
     journal = sysdj.Reader()
     journal.log_level(sysdj.LOG_INFO)
@@ -217,13 +228,13 @@ if __name__ == '__main__':
     for startup_ip in bans:
         ban(startup_ip)
 
-    print("Ssh_Auto_Banning starts !")
+    my_print("Ssh_Auto_Banning starts !")
     if active:
-        print("Banning is active")
+        my_print("Banning is active")
         if report:
-            print("Reporting to badips.com")
+            my_print("Reporting to badips.com")
     else:
-        print("Banning is NOT active")
+        my_print("Banning is NOT active")
 
     while True:
         second_lock.release()
