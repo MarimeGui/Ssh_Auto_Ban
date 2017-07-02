@@ -1,4 +1,4 @@
-#Ssh_Auto_Banning
+# Ssh_Auto_Banning
 
 A simple Python script that automatically detects Ssh password bruteforce attempts through analysis of sshd logs provided by Systemd's log system.
 
