@@ -22,6 +22,9 @@ more_messages = False  # Prints extra info
 active = True  # Actually adds the entries to iptables
 report = False  # If active, report to badips.com
 chain_name = "SSHBAN"  # Name of the iptables chain you want to use, needs to exist
+auto_whitelist_path = "auto_whitelist.data"
+rising_threats_path = "rising_threats.data"
+bans_file_path = "bans.data"
 
 
 # Codes for extract_info
@@ -33,6 +36,15 @@ NON_RELEVANT = 2
 def on_signal(signal_number, stack_frame):
     """Runs when a signal is received, shuts down properly"""
     print("{} received, shutting down properly".format(signal.Signals(signal_number).name))
+    if active:
+        shutdown_commands = [["iptables", "-D", "INPUT", "-j", chain_name],
+                             ["iptables", "-F", chain_name],
+                             ["iptables", "-X", chain_name],
+                             ["ip6tables", "-D", "INPUT", "-j", chain_name],
+                             ["ip6tables", "-F", chain_name],
+                             ["ip6tables", "-X", chain_name]]
+        for shutdown_command in shutdown_commands:
+            subprocess.call(shutdown_command, stdout=open(os.devnull, 'wb'))
     exit(0)
 
 
@@ -89,12 +101,14 @@ def manage_failed(ip: str):
             rising_threats[ip] += 1
         except KeyError:
             rising_threats[ip] = 1
-        pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
         print("{} → {} fails".format(ip, rising_threats[ip]))
         if rising_threats[ip] >= retry_count:
             print("{} → BAN !".format(ip))
             del(rising_threats[ip])
+            bans.append(ip)
+            pickle.dump(bans, open(bans_file_path, 'wb'))
             ban(ip)
+        pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
     else:
         print("{} → Fail but Whitelisted".format(ip))
 
@@ -170,19 +184,38 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, on_signal)
     signal.signal(signal.SIGINT, on_signal)
 
-    # Loads/creates the auto_whitelist file
-    auto_whitelist_path = "auto_whitelist.data"
+    # Loads the auto_whitelist file
     try:
         auto_whitelist = pickle.load(open(auto_whitelist_path, 'rb'))
     except FileNotFoundError:
         auto_whitelist = []
 
-    # Loads/creates the rising threats file
-    rising_threats_path = "rising_threats.data"
+    # Loads the rising threats file
     try:
         rising_threats = pickle.load(open(rising_threats_path, 'rb'))
     except FileNotFoundError:
         rising_threats = {}
+
+    # Loads the bans file
+    try:
+        bans = pickle.load(open(bans_file_path, 'rb'))
+    except FileNotFoundError:
+        bans = []
+
+    # Add iptables chains
+    if active:
+        startup_commands = [["iptables", "-w", "-N", chain_name],
+                            ["iptables", "-w", "-A", chain_name, "-j", "RETURN"],
+                            ["iptables", "-w", "-A", "INPUT", "-j", chain_name],
+                            ["ip6tables", "-w", "-N", chain_name],
+                            ["ip6tables", "-w", "-A", chain_name, "-j", "RETURN"],
+                            ["ip6tables", "-w", "-A", "INPUT", "-j", chain_name]]
+        for startup_command in startup_commands:
+            subprocess.call(startup_command, stdout=open(os.devnull, 'wb'))
+
+    # Adds all the previous bans back in the table
+    for startup_ip in bans:
+        ban(startup_ip)
 
     print("Ssh_Auto_Banning starts !")
     if active:

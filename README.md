@@ -8,6 +8,5 @@ It requires the python systemd module, it probably is in your package manager
 
 To install:
  - Download the script
- - Add a new chain both in iptables and ip6tables
- - Configure the script by changing the user definable variables (what chain to use)
+ - Configure the script by changing the user definable variables
  - Add a systemd service to make this script run on boot
