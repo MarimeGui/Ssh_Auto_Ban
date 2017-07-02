@@ -48,15 +48,15 @@ def process_line(msg: str):
     info = extract_info(msg)
     # If the login failed
     if info[0] == FAILED:
-        print_extra("Failed login from {} ! -> {}".format(info[1], msg))
+        print_extra("Failed login from {} ! → {}".format(info[1], msg))
         manage_failed(info[1])
     # If the login passed
     elif info[0] == ACCEPTED:
-        print_extra("Accepted login from {} ! -> {}".format(info[1], msg))
+        print_extra("Accepted login from {} ! → {}".format(info[1], msg))
         manage_accepted(info[1])
     # If it is non relevant
     else:
-        print_extra("Non relevant message -> {}".format(msg))
+        print_extra("Non relevant message → {}".format(msg))
 
 
 def extract_info(msg: str) -> list:
@@ -90,13 +90,13 @@ def manage_failed(ip: str):
         except KeyError:
             rising_threats[ip] = 1
         pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
-        print("{} -> {} fails".format(ip, rising_threats[ip]))
+        print("{} → {} fails".format(ip, rising_threats[ip]))
         if rising_threats[ip] >= retry_count:
-            print("{} -> BAN !".format(ip))
+            print("{} → BAN !".format(ip))
             del(rising_threats[ip])
             ban(ip)
     else:
-        print("{} -> Fail but Whitelisted".format(ip))
+        print("{} → Fail but Whitelisted".format(ip))
 
 
 def ban(ip: str):
@@ -128,7 +128,7 @@ def manage_accepted(ip: str):
             del(rising_threats[ip])
         except KeyError:
             pass
-        print("{} -> Add to Auto whitelist".format(ip))
+        print("{} → Add to Auto whitelist".format(ip))
         pickle.dump(auto_whitelist, open(auto_whitelist_path, 'wb'))
 
 
