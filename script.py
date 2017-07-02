@@ -175,7 +175,7 @@ class NewEntryJournalExtLock(threading.Thread):
 
 
 if __name__ == '__main__':
-    my_print("Initializing...")
+    print("Initializing...")
 
     # Make the journal object for reading the logs
     journal = sysdj.Reader()
