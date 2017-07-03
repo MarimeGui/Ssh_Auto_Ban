@@ -179,7 +179,7 @@ if __name__ == '__main__':
     cnf = configparser.ConfigParser()
     cnf.read('settings.ini')
     more_messages = cnf.getboolean('Script', 'more_messages', fallback='False')
-    use_direct_journal = cnf.getboolean('Script', 'use_direct_journal', fallback='True')
+    use_direct_journal = cnf.getboolean('Script', 'use_direct_journal', fallback='False')
     active = cnf.getboolean('Banning', 'active', fallback='False')
     report = cnf.getboolean('Banning', 'report', fallback='False')
     user_whitelist = ast.literal_eval(cnf.get('Banning', 'user_whitelist', fallback='[]'))
