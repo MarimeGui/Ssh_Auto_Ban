@@ -185,8 +185,7 @@ if __name__ == '__main__':
     user_whitelist = ast.literal_eval(cnf.get('Banning', 'user_whitelist', fallback='[]'))
     use_auto_whitelist = cnf.getboolean('Banning', 'use_auto_whitelist', fallback='True')
     retry_count = int(cnf.get('Banning', 'user_whitelist', fallback='6'))
-    # noinspection SpellCheckingInspection
-    chain_name = cnf.get('Names', 'chain_name', fallback='SSHBAN')
+    chain_name = cnf.get('Names', 'chain_name', fallback='ssh-ban')
     auto_whitelist_path = cnf.get('Names', 'auto_whitelist_path', fallback='auto_whitelist.data')
     rising_threats_path = cnf.get('Names', 'rising_threats_path', fallback='rising_threats.data')
     bans_file_path = cnf.get('Names', 'bans_file_path', fallback='bans.data')
