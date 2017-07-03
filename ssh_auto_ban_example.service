@@ -4,9 +4,8 @@ After=network.target iptables.service sshd.service
 
 [Service]
 Type=simple
-WorkingDirectory=/root/ssh_auto_ban_files/
+WorkingDirectory=/root/Ssh_Auto_Ban/
 ExecStart=/usr/bin/python3 /root/Ssh_Auto_Ban/script.py
-Restart=always
 
 [Install]
 WantedBy=multi-user.target
