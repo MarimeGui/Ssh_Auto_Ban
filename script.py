@@ -78,6 +78,8 @@ def extract_info(msg: str) -> list:
         if msg_words[3] == "invalid" and msg_words[4] == "user":
             # Failed on invalid user
             return [FAILED, msg_words[7].split("%")[0]]  # Split at % for IPv6 addresses
+        elif msg_words[1] == "publickey":
+            return [NON_RELEVANT]  # Public keys does not matter here
         else:
             # Failed on existing user
             return [FAILED, msg_words[5].split("%")[0]]
