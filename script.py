@@ -169,12 +169,6 @@ class NewEntryJournalExtLock(threading.Thread):
 
 
 if __name__ == '__main__':
-    my_print("Initializing...")
-
-    # Check if the config file exists
-    if not os.path.isfile('settings.ini'):
-        my_print("Please consider making the settings.ini file")
-
     # Load the configuration
     cnf = configparser.ConfigParser()
     cnf.read('settings.ini')
@@ -189,6 +183,12 @@ if __name__ == '__main__':
     auto_whitelist_path = cnf.get('Names', 'auto_whitelist_path', fallback='auto_whitelist.data')
     rising_threats_path = cnf.get('Names', 'rising_threats_path', fallback='rising_threats.data')
     bans_file_path = cnf.get('Names', 'bans_file_path', fallback='bans.data')
+
+    my_print("Initializing...")
+
+    # Check if the config file exists
+    if not os.path.isfile('settings.ini'):
+        my_print("Please consider making the settings.ini file")
 
     # Make the journal object for reading the logs
     journal = sysdj.Reader()
