@@ -112,7 +112,7 @@ def manage_failed(ip: str):
             rising_threats[ip] = 1
         my_print("{} → {} fails".format(ip, rising_threats[ip]))
         if rising_threats[ip] >= retry_count:
-            print("{} → BAN !".format(ip))
+            my_print("{} → BAN !".format(ip))
             del(rising_threats[ip])
             bans.append(ip)
             pickle.dump(bans, open(bans_file_path, 'wb'))
@@ -227,8 +227,8 @@ if __name__ == '__main__':
     # Adds all the previous bans back in the table
     for startup_ip in bans:
         ban(startup_ip)
+    my_print("Loaded {} banned IPs".format(len(bans)))
 
-    my_print("Ssh_Auto_Banning starts !")
     if active:
         my_print("Banning is active")
         if report:
@@ -236,6 +236,7 @@ if __name__ == '__main__':
     else:
         my_print("Banning is NOT active")
 
+    my_print("Ssh_Auto_Banning starts !")
     while True:
         second_lock.release()
         main_lock.acquire()

@@ -1,4 +1,4 @@
-# Ssh_Auto_Banning
+# Ssh Auto Ban
 
 A simple Python script that automatically detects Ssh password bruteforce attempts through analysis of sshd logs provided by Systemd's log system.
 
@@ -10,3 +10,5 @@ To install:
  - Download the script
  - Configure the script by changing the user definable variables
  - Add a systemd service to make this script run on boot
+
+An example service file is provided for convenience.
