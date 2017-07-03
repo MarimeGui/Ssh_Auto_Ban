@@ -5,6 +5,7 @@ By default, this script will ban every ip that fails to login 6 times.
 Although, if an ip logs in properly, we add it to the whitelist.
 Bans with the help of iptables"""
 
+# noinspection SpellCheckingInspection
 from systemd import journal as sysdj
 import threading
 import signal
@@ -13,19 +14,8 @@ import subprocess
 import os
 import requests
 import ipaddress
-
-# User definable variables
-user_whitelist = []  # Add IP addresses you do not want to ban here
-use_auto_whitelist = True  # Enables the auto whitelist, adds IPs that connected successfully to the whitelist
-retry_count = 6  # How many times an IP can try to guess the password
-more_messages = False  # Prints extra info
-active = True  # Actually adds the entries to iptables
-report = False  # If active, report to badips.com
-use_direct_journal = True  # Writes logs directly to the systemd journal, disable when testing
-chain_name = "SSHBAN"  # Name of the iptables chain you want to use, needs to exist
-auto_whitelist_path = "auto_whitelist.data"
-rising_threats_path = "rising_threats.data"
-bans_file_path = "bans.data"
+import configparser
+import ast
 
 
 # Codes for extract_info
@@ -34,6 +24,7 @@ ACCEPTED = 1
 NON_RELEVANT = 2
 
 
+# noinspection PyUnusedLocal
 def on_signal(signal_number, stack_frame):
     """Runs when a signal is received, shuts down properly"""
     my_print("{} received, shutting down properly".format(signal.Signals(signal_number).name))
@@ -180,6 +171,26 @@ class NewEntryJournalExtLock(threading.Thread):
 if __name__ == '__main__':
     my_print("Initializing...")
 
+    # Check if the config file exists
+    if not os.path.isfile('settings.ini'):
+        my_print("Please consider making the settings.ini file")
+
+    # Load the configuration
+    cnf = configparser.ConfigParser()
+    cnf.read('settings.ini')
+    more_messages = cnf.getboolean('Script', 'more_messages', fallback='False')
+    use_direct_journal = cnf.getboolean('Script', 'use_direct_journal', fallback='True')
+    active = cnf.getboolean('Banning', 'active', fallback='False')
+    report = cnf.getboolean('Banning', 'report', fallback='False')
+    user_whitelist = ast.literal_eval(cnf.get('Banning', 'user_whitelist', fallback='[]'))
+    use_auto_whitelist = cnf.getboolean('Banning', 'use_auto_whitelist', fallback='True')
+    retry_count = int(cnf.get('Banning', 'user_whitelist', fallback='6'))
+    # noinspection SpellCheckingInspection
+    chain_name = cnf.get('Names', 'chain_name', fallback='SSHBAN')
+    auto_whitelist_path = cnf.get('Names', 'auto_whitelist_path', fallback='auto_whitelist.data')
+    rising_threats_path = cnf.get('Names', 'rising_threats_path', fallback='rising_threats.data')
+    bans_file_path = cnf.get('Names', 'bans_file_path', fallback='bans.data')
+
     # Make the journal object for reading the logs
     journal = sysdj.Reader()
     journal.log_level(sysdj.LOG_INFO)
@@ -235,6 +246,7 @@ if __name__ == '__main__':
     if active:
         my_print("Banning is active")
         if report:
+            # noinspection SpellCheckingInspection
             my_print("Reporting to badips.com")
     else:
         my_print("Banning is NOT active")

@@ -8,7 +8,5 @@ It requires the python systemd module, it probably is in your package manager
 
 To install:
  - Download the script
- - Configure the script by changing the user definable variables
- - Add a systemd service to make this script run on boot
-
-An example service file is provided for convenience.
+ - Configure the script by making a settings.ini file (example provided)
+ - Add a systemd service to make this script run on boot (example provided)
