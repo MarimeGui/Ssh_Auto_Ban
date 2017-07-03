@@ -1,3 +1,6 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea
 Ssh_Auto_Banning.iml
+auto_whitelist.data
+rising_threats.data
+bans.data

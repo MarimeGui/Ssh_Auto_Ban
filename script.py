@@ -106,18 +106,21 @@ def complete_whitelist() -> list:
 def manage_failed(ip: str):
     """What to do when some ip fails to login"""
     if ip not in complete_whitelist():
-        try:
-            rising_threats[ip] += 1
-        except KeyError:
-            rising_threats[ip] = 1
-        my_print("{} → {} fails".format(ip, rising_threats[ip]))
-        if rising_threats[ip] >= retry_count:
-            my_print("{} → BAN !".format(ip))
-            del(rising_threats[ip])
-            bans.append(ip)
-            pickle.dump(bans, open(bans_file_path, 'wb'))
-            ban(ip)
-        pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
+        if ip not in bans:  # Sometimes take a little bit of time for iptables to update
+            try:
+                rising_threats[ip] += 1
+            except KeyError:
+                rising_threats[ip] = 1
+            my_print("{} → {} fails".format(ip, rising_threats[ip]))
+            if rising_threats[ip] >= retry_count:
+                my_print("{} → BAN !".format(ip))
+                del(rising_threats[ip])
+                bans.append(ip)
+                pickle.dump(bans, open(bans_file_path, 'wb'))
+                ban(ip)
+            pickle.dump(rising_threats, open(rising_threats_path, 'wb'))
+        else:
+            print_extra("{} → Fail but already banned".format(ip))
     else:
         my_print("{} → Fail but Whitelisted".format(ip))
 
