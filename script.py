@@ -77,18 +77,28 @@ def extract_info(msg: str) -> list:
     if msg_words[0] == "Failed":
         if msg_words[3] == "invalid" and msg_words[4] == "user":
             # Failed on invalid user
-            return [FAILED, msg_words[7].split("%")[0]]  # Split at % for IPv6 addresses
+            return [FAILED, extract_ip(msg, 7)]  # Split at % for IPv6 addresses
         elif msg_words[1] == "publickey":
             return [NON_RELEVANT]  # Public keys does not matter here
         else:
             # Failed on existing user
-            return [FAILED, msg_words[5].split("%")[0]]
+            return [FAILED, extract_ip(msg, 5)]
     elif msg_words[0] == "Accepted":
         # Accepted login
-        return [ACCEPTED, msg_words[5].split("%")[0]]
+        return [ACCEPTED, extract_ip(msg, 5)]
     else:
         # Everything else
         return [NON_RELEVANT]
+
+
+def extract_ip(msg: str, ip_at: int) -> str:
+    """Extracts the ip at given word with empty user detection and removing interface after % on IPV6"""
+    msg_words = msg.split()
+    if msg.count('  ') == 1:
+        # Blank user
+        return msg_words[ip_at-1].split("%")[0]
+    else:
+        return msg_words[ip_at].split("%")[0]
 
 
 def complete_whitelist() -> list:
